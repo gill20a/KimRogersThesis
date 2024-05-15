@@ -1,0 +1,133 @@
+# Set working directory to wherever you are storing plot data and where you want to export data to.
+setwd("/Users/kimberlyrogers/Downloads")
+
+# Data for this file can be found at https://web.williams.edu/wp-etc/biology/hmfplot/index.php. "Detailed tree, shrub, and herb
+# data" were downloaded, with all options left to ANY (live_dead was specified to "live"). Boxes for "NO shrub data" and "NO herb data" 
+# were checked, and "include extended tree survey info" was also checked. Prior to processing, copy and paste chosen data to empty Excel 
+# sheet using the procedure outlined in dataset, and save as CSV. 
+
+# Read in your entry CSV file.
+plots <- read.csv("ALLHMFDATA.csv")
+
+# If there are any odd characters (like a ' or a ") before or after the plot, remove those.
+plots$plot_number <- gsub("'","",as.character(plots$plot_number))
+plots$plot_number <- gsub("\"","",as.character(plots$plot_number))
+
+# Pull up "readr" package. If not downloaded, use "install.packages" command to install.
+# install.packages("readr")
+library("readr")
+
+# Generate empty tables.
+plots_sumspp <- data.frame(matrix(NA, nrow=nrow(plots), ncol = 9))
+plots_sumall <- data.frame(matrix(NA, nrow=nrow(plots), ncol = 4))
+
+# Initiate counter
+j = 0
+
+# For loop for generating plots_sumspp table
+for(i in 1:nrow(plots)) {
+  # if the plot is not yet in the plots_sumspp table, initiate plot, tree survey number, and said species, and calculate basal area for given tree(s)
+  if (!(plots$plot_number[i] %in% plots_sumspp$X1)) {
+    j <- j + 1
+    plots_sumspp$X1[j] <- plots$plot_number[i]
+    plots_sumspp$X2[j] <- plots$tree_survey_number[i]
+    plots_sumspp$X3[j] <- plots$species_name[i]
+    plots_sumspp$X4[j] <- plots$tree_dbh_in[i]
+    plots_sumspp$X5[j] <- plots$tree_count[i]
+    # calculate basal area (in square feet) from DBH in inches and multiply by # of trees of that size
+    plots_sumspp$X6[j] <- pi * plots_sumspp$X4[j] ^2 / 4 / 144 * plots$tree_count[i]
+    i <- i + 1
+  }
+  # if the plot is in the plot_sumspp table, but the specific tree survey is not for that plot, initiate tree survey number and species and calculate basal area for that tree
+  else if ((plots$plot_number[i] %in% plots_sumspp$X1) & (!(plots$tree_survey_number[i] %in% plots_sumspp$X2[which(plots_sumspp$X1 == plots$plot_number[i])]))) {
+    j <- j + 1
+    plots_sumspp$X1[j] <- plots$plot_number[i]
+    plots_sumspp$X2[j] <- plots$tree_survey_number[i]
+    plots_sumspp$X3[j] <- plots$species_name[i]
+    plots_sumspp$X4[j] <- plots$tree_dbh_in[i]
+    plots_sumspp$X5[j] <- plots$tree_count[i]
+    # calculate basal area (in square feet) from DBH in inches and multiply by # of trees of that size
+    plots_sumspp$X6[j] <- pi * plots_sumspp$X4[j] ^2 / 4 / 144 * plots$tree_count[i]
+    i <- i + 1
+  }
+  # if the plot and given tree survey is in the plots_sumspp table, but the species is not yet listed for that plot, initiate species and calculate basal area for that tree
+  else if ((plots$plot_number[i] %in% plots_sumspp$X1) & (plots$tree_survey_number[i] %in% plots_sumspp$X2[which(plots_sumspp$X1 == plots$plot_number[i])]) & (!(plots$species_name[i] %in% plots_sumspp$X3[which((plots_sumspp$X1 == plots$plot_number[i]) & (plots_sumspp$X2 == plots$tree_survey_number[i]))]))) {
+    j <- j + 1
+    plots_sumspp$X1[j] <- plots$plot_number[i]
+    plots_sumspp$X2[j] <- plots$tree_survey_number[i]
+    plots_sumspp$X3[j] <- plots$species_name[i]
+    plots_sumspp$X4[j] <- plots$tree_dbh_in[i]
+    plots_sumspp$X5[j] <- plots$tree_count[i]
+    # calculate basal area (in square feet) from DBH in inches and multiply by # of trees of that size
+    plots_sumspp$X6[j] <- pi * plots_sumspp$X4[j] ^2 / 4 / 144 * plots$tree_count[i]
+    i <- i + 1
+  }
+  # if the plot is in plots_sumspp table, and the species is listed for that plot, add tree's basal area to existing species basal area sum for that plot
+  else if ((plots$plot_number[i] %in% plots_sumspp$X1) & (plots$tree_survey_number[i] %in% plots_sumspp$X2[which(plots_sumspp$X1 == plots$plot_number[i])]) & (plots$species_name[i] %in% plots_sumspp$X3[which((plots_sumspp$X1 == plots$plot_number[i]) & (plots_sumspp$X2 == plots$tree_survey_number[i]))])) {
+    k = which((plots_sumspp$X3 == plots$species_name[i]) & (plots_sumspp$X1 == plots$plot_number[i]) & (plots_sumspp$X2 == plots$tree_survey_number[i]))
+    plots_sumspp$X5[k] <- plots_sumspp$X5[k] + plots$tree_count[i]
+    # calculate basal area (in square feet) from DBH in inches and multiply by # of trees of that size
+    # add to sum BA of same species of tree in plot
+    plots_sumspp$X6[k] <- plots_sumspp$X6[k] + pi * plots$tree_dbh_in[i] ^2 / 4 / 144 * plots$tree_count[i]
+    i <- i + 1
+  }
+}
+
+# Remove NAs
+plots_sumspp <- plots_sumspp[rowSums(is.na(plots_sumspp)) != ncol(plots_sumspp),]
+
+# reset counter
+j = 0
+
+# For loop for generating plots_sumall table
+for(i in 1:nrow(plots_sumspp)) {
+  # if the plot not yet in plots_sumall, initiate plot
+  if (!(plots_sumspp$X1[i] %in% plots_sumall$X1)) {
+    j <- j + 1
+    plots_sumall$X1[j] <- plots_sumspp$X1[i]
+    plots_sumall$X2[j] <- plots_sumspp$X2[i]
+    plots_sumall$X3[j] <- plots_sumspp$X5[i]
+    plots_sumall$X4[j] <- plots_sumspp$X6[i]
+    i <- i + 1
+  }
+  else if ((plots_sumspp$X1[i] %in% plots_sumall$X1) & (!(plots_sumspp$X2[i] %in% plots_sumall$X2[which(plots_sumall$X1 == plots_sumspp$X1[i])]))) {
+    j <- j + 1
+    plots_sumall$X1[j] <- plots_sumspp$X1[i]
+    plots_sumall$X2[j] <- plots_sumspp$X2[i]
+    plots_sumall$X3[j] <- plots_sumspp$X5[i]
+    plots_sumall$X4[j] <- plots_sumspp$X6[i]
+    i <- i + 1
+  }
+  # if the plot is already in plots_sumall, increment basal area and tree count
+  else if ((plots_sumspp$X1[i] %in% plots_sumall$X1) & (plots_sumspp$X2[i] %in% plots_sumall$X2[which(plots_sumall$X1 == plots_sumspp$X1[i])])) {
+    m = which((plots_sumall$X1 == plots_sumspp$X1[i]) & (plots_sumall$X2 == plots_sumspp$X2[i]))
+    plots_sumall$X3[m] <- plots_sumall$X3[m] + plots_sumspp$X5[i]
+    plots_sumall$X4[m] <- plots_sumall$X4[m] + plots_sumspp$X6[i]
+    i <- i + 1
+  }
+}
+
+# Remove NAs
+plots_sumall <- plots_sumall[rowSums(is.na(plots_sumall)) != ncol(plots_sumall),]
+
+
+# add basal area, tree count, and importance value to plots_sumspp
+for(i in 1:nrow(plots_sumspp)) {
+  n = which((plots_sumspp$X1[i] == plots_sumall$X1) & (plots_sumspp$X2[i] == plots_sumall$X2))
+  plots_sumspp$X7[i] <- plots_sumall$X3[n]
+  plots_sumspp$X8[i] <- plots_sumall$X4[n]
+  # calculate importance value
+  plots_sumspp$X9[i] <- 50 * plots_sumspp$X5[i] / plots_sumspp$X7[i] + 50 * plots_sumspp$X6[i] / plots_sumspp$X8[i]
+  i <- i + 1
+}
+
+# reset counter
+j = 0
+
+# Set simple column names for all of the tables
+colnames(plots_sumspp) <- c("plotnumber", "treesurveynumber", "speciesname", "treedbh", "stemcount", "basalarea", "totalstemcount", "totalbasalarea", "importancevalue")
+colnames(plots_sumall) <- c("plot_number", "treesurveynumber", "stemcount", "basalarea")
+finalsubset <- plots_sumspp[-c(4)]
+
+# Write primary table to output file for use in thesis model
+write.csv(finalsubset, file = "ALLHMFDATA_PROCESSED.csv", row.names = FALSE)
